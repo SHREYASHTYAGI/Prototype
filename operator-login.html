@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Operator Login</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #111827;
+      --primary-contrast: #ffffff;
+      --radius: 12px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--card);
+      width: 100%;
+      max-width: 380px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    p.sub {
+      margin: 0 0 20px 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease;
+    }
+
+    input:focus { border-color: #c7cad1; }
+
+    .actions { margin-top: 16px; display: grid; gap: 10px; }
+
+    button, .link-btn, .signup-link {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--primary);
+      color: var(--primary-contrast);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s ease, transform .02s ease;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+    }
+
+    button:hover, .link-btn:hover, .signup-link:hover { opacity: .92; }
+    button:active, .link-btn:active, .signup-link:active { transform: translateY(1px); }
+
+    .secondary { background: #ffffff; color: var(--text); }
+
+    .footer {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Operator Login</h2>
+    <p class="sub">Sign in to manage your live bus</p>
+
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input type="text" id="username" placeholder="Enter username" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter password" required>
+
+      <div class="actions">
+        <button type="submit">Sign In</button>
+        <a href="operator-signup.html" class="signup-link secondary">Create an account</a>
+        <a class="link-btn secondary" href="index.html">Back to home</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both username and password.");
+        return;
+      }
+
+      const storedUser = JSON.parse(localStorage.getItem("operator_" + username));
+      if (storedUser && storedUser.password === password) {
+        localStorage.setItem("operatorLoggedIn", "true");
+        localStorage.setItem("operatorUsername", username);
+        window.location.href = "operator.html";
+      } else {
+        alert("Invalid username or password.");
+      }
+    });
+  </script>
+</body>
+</html>

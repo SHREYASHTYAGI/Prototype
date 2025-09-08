@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Operator Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f8fb;
+    }
+
+    header {
+      background: #0078d7;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    input {
+      padding: 0.5rem;
+      width: 100%;
+      margin: 0.5rem 0 1rem 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    button {
+      padding: 0.7rem 1.5rem;
+      background: #0078d7;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #005bb5;
+    }
+  </style>
+</head>
+<body>
+  <header>Operator Dashboard</header>
+
+  <div class="container">
+    <h2>Register Your Bus</h2>
+
+    <label for="startPoint">Starting Point:</label>
+    <input type="text" id="startPoint" placeholder="Enter starting point">
+
+    <label for="endPoint">Ending Point:</label>
+    <input type="text" id="endPoint" placeholder="Enter ending point">
+
+    <label for="busNumber">Bus Number:</label>
+    <input type="text" id="busNumber" placeholder="Enter bus number">
+
+    <label for="seats">Total Seats:</label>
+    <input type="number" id="seats" placeholder="Enter total seats">
+
+    <label for="startTime">Starting Time:</label>
+    <input type="time" id="startTime">
+
+    <div class="status-info">
+      <strong>GPS Status:</strong> <span id="gpsStatus">Ready to start tracking</span>
+    </div>
+
+    <button onclick="registerBus()">Go Live with GPS Tracking</button>
+  </div>
+
+  <script>
+    function registerBus() {
+      const busNumber = document.getElementById("busNumber").value.trim();
+      const startPoint = document.getElementById("startPoint").value.trim();
+      const endPoint = document.getElementById("endPoint").value.trim();
+      const seats = document.getElementById("seats").value.trim();
+      const startTime = document.getElementById("startTime").value.trim();
+
+      if (!busNumber || !startPoint || !endPoint || !seats || !startTime) {
+        alert("Please fill all fields!");
+        return;
+      }
+
+      const bus = {
+        id: busNumber,
+        start: startPoint,
+        end: endPoint,
+        seats: parseInt(seats, 10),
+        time: startTime
+      };
+
+      // Save only one bus (overwrite previous)
+      localStorage.setItem("liveBus", JSON.stringify(bus));
+
+      // Redirect to confirmation page
+      window.location.href = "livebus.html";
+    }
+  </script>
+</body>
+</html>

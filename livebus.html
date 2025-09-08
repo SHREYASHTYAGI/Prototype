@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Live Bus Tracking</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --bg:#f5f6f8; --card:#fff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#111827; }
+    body { font-family: Arial, sans-serif; background: var(--bg); min-height: 100vh; color: var(--text); }
+    header { background: #fff; color: var(--text); padding: 1rem 1.5rem; text-align: center; font-size: 1.4rem; font-weight: 700; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    .container { max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 1.25rem; margin-bottom: 1rem; }
+    .section-title { font-size: 1rem; font-weight: 700; margin-bottom: .75rem; }
+    .status-row { display:flex; align-items:center; gap:.75rem; }
+    .status-dot { width:12px; height:12px; border-radius:50%; background:#9ca3af; }
+    .status-dot.live { background:#10b981; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: .75rem; }
+    button { padding: .75rem 1rem; border-radius: 10px; border:1px solid var(--border); background: var(--accent); color:#fff; font-weight:600; cursor:pointer; transition: opacity .15s ease; }
+    button:hover { opacity:.92; }
+    .btn-secondary { background:#fff; color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>Operator Live Bus Tracking</header>
+  <div class="container">
+    <div class="card">
+      <div class="section-title">Status</div>
+      <div class="status-row"><div id="statusDot" class="status-dot"></div><div id="busStatus" class="muted">Unknown</div></div>
+      <div id="gpsInfo" class="muted" style="margin-top:.5rem; display:none;">
+        <div><strong>Current Location:</strong> <span id="currentLocation">Getting location...</span></div>
+        <div><strong>Coordinates:</strong> <span id="coordinates">Lat: --, Lng: --</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Controls</div>
+      <div class="grid">
+        <button onclick="startGPSTracking()">Start GPS Tracking</button>
+        <button onclick="stopGPSTracking()">Stop GPS Tracking</button>
+        <button class="btn-secondary" onclick="removeLiveBus()">Remove Bus</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Location History</div>
+      <div id="historyList" class="muted">No history yet.</div>
+    </div>
+  </div>
+
+  <script>
+    let gpsWatchId = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      checkOperatorLogin();
+      ensureBusRegistered();
+      updateStatusDisplay();
+      loadHistory();
+    });
+
+    function checkOperatorLogin() {
+      const isLoggedIn = localStorage.getItem("operatorLoggedIn");
+      if (isLoggedIn !== "true") { alert("Please login first."); window.location.href = "operator-login.html"; }
+    }
+
+    function ensureBusRegistered() {
+      const username = localStorage.getItem("operatorUsername");
+      let bus = JSON.parse(localStorage.getItem(`bus_${username}`) || "{}");
+      if (!bus.id) {
+        bus.id = `bus_${Date.now()}`;
+        bus.operatorUsername = username;
+        bus.status = "stopped";
+        bus.locationHistory = [];
+        localStorage.setItem(`bus_${username}`, JSON.stringify(bus));
+      }
+    }
+
+    async function getPlaceName(lat, lng) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        return data.display_name || `[${lat.toFixed(5)}, ${lng.toFixed(5)}]`;
+      } catch { return `[${lat.toFixed(5)}, ${lng.toFixed(5)}]`; }
+    }
+
+    function startGPSTracking() {
+      if (!navigator.geolocation) return alert("GPS not supported.");
+      if (gpsWatchId) return alert("GPS tracking already started.");
+
+      gpsWatchId = navigator.geolocation.watchPosition(async pos => {
+        const liveBuses = JSON.parse(localStorage.getItem("liveBuses") || "[]");
+        if (liveBuses.length === 0) return;
+        const bus = liveBuses[liveBuses.length - 1];
+        const placeName = await getPlaceName(pos.coords.latitude, pos.coords.longitude);
+        const newPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString(), place: placeName };
+        const busIndex = liveBuses.findIndex(b => b.id === bus.id);
+        if (busIndex >= 0) {
+          liveBuses[busIndex].currentCoordinates = { lat: newPoint.lat, lng: newPoint.lng, accuracy: newPoint.accuracy };
+          liveBuses[busIndex].currentLocation = placeName;
+          liveBuses[busIndex].lastUpdate = newPoint.timestamp;
+          liveBuses[busIndex].status = "live";
+          if (!liveBuses[busIndex].locationHistory) liveBuses[busIndex].locationHistory = [];
+          liveBuses[busIndex].locationHistory.unshift(newPoint);
+          if (liveBuses[busIndex].locationHistory.length > 50) liveBuses[busIndex].locationHistory.pop();
+          localStorage.setItem("liveBuses", JSON.stringify(liveBuses));
+          updateStatusDisplay();
+          renderHistory(liveBuses[busIndex].locationHistory);
+        }
+      }, err => { alert("GPS access denied or unavailable."); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+      alert("GPS tracking started. Please allow location permission.");
+    }
+
+    function stopGPSTracking() {
+      if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+      gpsWatchId = null;
+      const username = localStorage.getItem("operatorUsername");
+      let bus = JSON.parse(localStorage.getItem(`bus_${username}`) || "{}");
+      if (bus.id) {
+        bus.status = "stopped";
+        bus.lastUpdate = new Date().toISOString();
+        localStorage.setItem(`bus_${username}`, JSON.stringify(bus));
+        updateLiveBuses(bus);
+        updateStatusDisplay();
+      }
+      alert("GPS tracking stopped.");
+    }
+
+    function removeLiveBus() {
+      const username = localStorage.getItem("operatorUsername");
+      localStorage.removeItem(`bus_${username}`);
+      let liveBuses = JSON.parse(localStorage.getItem("liveBuses") || "[]");
+      liveBuses = liveBuses.filter(b => b.operatorUsername !== username);
+      localStorage.setItem("liveBuses", JSON.stringify(liveBuses));
+      stopGPSTracking();
+      alert("Bus removed successfully.");
+      window.location.reload();
+    }
+
+    function updateLiveBuses(bus) {
+      let liveBuses = JSON.parse(localStorage.getItem("liveBuses") || "[]");
+      liveBuses = liveBuses.filter(b => b.operatorUsername !== bus.operatorUsername);
+      liveBuses.push(bus);
+      localStorage.setItem("liveBuses", JSON.stringify(liveBuses));
+    }
+
+    function updateStatusDisplay() {
+      const liveBuses = JSON.parse(localStorage.getItem("liveBuses") || "[]");
+      const statusEl = document.getElementById("busStatus");
+      const statusDot = document.getElementById("statusDot");
+      const gpsInfo = document.getElementById("gpsInfo");
+      const currentLocation = document.getElementById("currentLocation");
+      const coordinates = document.getElementById("coordinates");
+      const bus = liveBuses.length > 0 ? liveBuses[liveBuses.length - 1] : null;
+      if (!bus || !bus.id) { statusEl.textContent = "No bus registered"; statusDot.className = "status-dot"; gpsInfo.style.display = "none"; return; }
+      if (bus.status === "live") {
+        statusEl.textContent = "Live tracking"; statusDot.className = "status-dot live"; gpsInfo.style.display = "block";
+        if (bus.currentLocation) currentLocation.textContent = bus.currentLocation;
+        if (bus.currentCoordinates) coordinates.textContent = `Lat: ${bus.currentCoordinates.lat.toFixed(6)}, Lng: ${bus.currentCoordinates.lng.toFixed(6)}`;
+      } else {
+        statusEl.textContent = "Stopped"; statusDot.className = "status-dot"; gpsInfo.style.display = "none";
+      }
+    }
+
+    function loadHistory() {
+      const liveBuses = JSON.parse(localStorage.getItem("liveBuses") || "[]");
+      const bus = liveBuses.length > 0 ? liveBuses[liveBuses.length - 1] : null;
+      renderHistory(bus ? bus.locationHistory || [] : []);
+    }
+
+    function renderHistory(history) {
+      const el = document.getElementById("historyList");
+      if (!history || history.length === 0) { el.textContent = "No location history yet. Start GPS tracking to see your route."; return; }
+      el.innerHTML = history.map(h => `<div style="padding:.5rem 0; border-bottom:1px solid var(--border);"><div>${new Date(h.timestamp).toLocaleString()}</div><div class="muted">${h.place}</div></div>`).join("");
+    }
+  </script>
+</body>
+</html>
